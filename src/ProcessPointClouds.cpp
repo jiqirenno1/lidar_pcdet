@@ -734,10 +734,10 @@ ProcessPointClouds::Clustering(PtCdPtr cloud, float clusterTolerance, int minSiz
 
     }
 
-    auto endTime = std::chrono::steady_clock::now();
-    auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
-    std::cout << "clustering took " << elapsedTime.count() << " milliseconds and found " << clusters.size()
-              << " clusters" << std::endl;
+//    auto endTime = std::chrono::steady_clock::now();
+//    auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+//    std::cout << "clustering took " << elapsedTime.count() << " milliseconds and found " << clusters.size()
+//              << " clusters" << std::endl;
 
     return clusters;
 }

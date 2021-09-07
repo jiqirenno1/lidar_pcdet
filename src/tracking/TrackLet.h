@@ -14,7 +14,7 @@ public:
     void update(Eigen::Vector3d &det);
     Eigen::Vector3d getState();
     int getID();
-    int getSpeed();
+    float getSpeed();
 
 public:
     int hits_=0;
@@ -22,6 +22,7 @@ public:
 private:
     KalmanFilter KF_;
     double t_=0;
+    double detT_=0;
     float posZ_=0;
     float detZ_ = 0;
     int id_ = 0;

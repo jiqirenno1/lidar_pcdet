@@ -43,8 +43,8 @@ TrackLet::~TrackLet() {
 
 void TrackLet::predict(double time) {
     //cancle
-//    double diffT = time - t_;
-//    t_ = time;
+    detT_ = time - t_;
+    t_ = time;
 //    std::cout<<" ******deta time: "<<diffT<<std::endl;
 //    Eigen::MatrixXd F = Eigen::MatrixXd::Identity(6,6);
 //    Eigen::MatrixXd block_F = Eigen::MatrixXd::Identity(3,3)*diffT;
@@ -75,7 +75,8 @@ int TrackLet::getID() {
     return id_;
 }
 
-int TrackLet::getSpeed() {
-    return int(KF_.GetX()[5]);
+float TrackLet::getSpeed() {
+    return std::abs(KF_.GetX()[5]);
+//    return detZ_/(detT_ + 1e-9);
 }
 
