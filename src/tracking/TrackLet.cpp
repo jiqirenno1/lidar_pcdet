@@ -62,6 +62,7 @@ void TrackLet::update(Eigen::Vector3d &det) {
 
     KF_.KFUpdate(det);
     hits_+=1;
+//    std::cout<<"hit_: "<<hits_<<std::endl;
     time_since_update_=0;
 
 }
@@ -75,7 +76,9 @@ int TrackLet::getID() {
     return id_;
 }
 
-int TrackLet::getSpeed() {
-    return int(KF_.GetX()[5]);
+float TrackLet::getSpeed() {
+    float speed = std::sqrt(std::pow(KF_.GetX()[5], 2) + std::pow(KF_.GetX()[4], 2) +
+            std::pow(KF_.GetX()[3], 2) + 1e-9) * (KF_.GetX()[5]/std::abs(KF_.GetX()[5]));
+    return speed;
 }
 

@@ -12,7 +12,10 @@ void cluster3d::clusterHelper(int ind, PtCdPtr cloud, std::vector<int> &cluster,
     processed[ind] = true;
     cluster.push_back(ind);
 
-    std::vector<int> nearest_point = tree->search(cloud->points[ind], distanceTol*0.1, distanceTol*0.3, distanceTol);
+    float disTolx = 1.8;
+    float disToly = 2;
+    float disTolz = 2.2;
+    std::vector<int> nearest_point = tree->search(cloud->points[ind], disTolx, disToly, disTolz);
     for (int nearest_id:nearest_point) {
         if (!processed[nearest_id]) {
             clusterHelper(nearest_id, cloud, cluster, tree);
@@ -28,7 +31,7 @@ std::vector<PtCdPtr> cluster3d::EuclidCluster(PtCdPtr cloud) {
     }
     for (int ind = 0; ind < num_points; ind++) {
         if (processed[ind]) {
-            ind++;
+//            ind++;
             continue;
         }
         std::vector<int> cluster_ind;

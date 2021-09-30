@@ -20,7 +20,7 @@ public:
 
 
 private:
-    int nums_hit_ = 0;
+    int nums_hit_ = 3;
     int nums_lose_ = 2;
     int frame_ = 0;
     std::vector<TrackLet> tracks_;

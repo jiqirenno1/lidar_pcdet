@@ -14,7 +14,7 @@ public:
     void update(Eigen::Vector3d &det);
     Eigen::Vector3d getState();
     int getID();
-    int getSpeed();
+    float getSpeed();
 
 public:
     int hits_=0;

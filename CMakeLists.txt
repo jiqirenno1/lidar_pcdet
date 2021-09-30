@@ -143,7 +143,7 @@ find_package(OpenCV REQUIRED)
 set(CMAKE_CXX_STANDARD 14)
 
 
-add_executable(track0 src/testTracking.cpp src/ProcessPointClouds.cpp src/tracking/Mot3D.cpp  src/tracking/TrackLet.cpp src/tracking/KalmanFilter.cpp src/tracking/Hungarian.cpp src/cluster/cluster3d.cpp)
+add_executable(track0 src/testTracking.cpp src/ProcessPointClouds.cpp src/tracking/Mot3D.cpp  src/tracking/TrackLet.cpp src/tracking/KalmanFilter.cpp src/tracking/Hungarian.cpp src/cluster/cluster3d.cpp src/background/Bgmodel.cpp)
 target_link_libraries(track0 ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${OpenCV_LIBRARIES})
 
 ## Rename C++ executable without prefix

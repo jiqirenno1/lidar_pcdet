@@ -54,8 +54,8 @@ std::vector<std::pair<int, float>> Mot3D::update(std::vector<Eigen::Vector3d> &d
     for (int i = 0; i < n_det; i++) {
         if(assignment[i]!=-1)
         {
-            //std::cout<<"*******output: "<<dis_mat[i][assignment[i]]<<std::endl;
-            if(dis_mat[i][assignment[i]]>10)
+            std::cout<<"*******output: "<<dis_mat[i][assignment[i]]<<std::endl;
+            if(dis_mat[i][assignment[i]]>5)
             {
                 assignment[i] = -1;
             }

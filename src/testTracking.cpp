@@ -13,13 +13,14 @@
 #include "ProcessPointClouds.h"
 #include "tracking/Mot3D.h"
 #include "cluster/cluster3d.h"
+#include "background/Bgmodel.h"
 
 using namespace std;
 typedef pcl::PointXYZ PointT;
 typedef pcl::PointCloud<PointT>::Ptr PtCdPtr;
 
-#define trk 0
-#define det 1
+#define trk 1
+#define det 0
 
 float getTanAngle(PtCdPtr cloud)
 {
@@ -67,6 +68,8 @@ private:
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in_{new pcl::PointCloud<pcl::PointXYZ>};
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_out_{new pcl::PointCloud<pcl::PointXYZ>};
     std::shared_ptr<Mot3D> mot_ptr{new Mot3D};
+    std::shared_ptr<Bgmodel> bgmodel_ptr;
+    int i = 0;
 };
 
 TranformCloud::TranformCloud(ros::NodeHandle &nh, std::string topic_sub, std::string topic_pub, std::string topic_cloud, size_t buff_size) {
@@ -75,9 +78,13 @@ TranformCloud::TranformCloud(ros::NodeHandle &nh, std::string topic_sub, std::st
     pub_cube_ = nh_.advertise<visualization_msgs::MarkerArray>(topic_pub, 2);
     pub_txt_ = nh_.advertise<visualization_msgs::MarkerArray>("axis_txt", 2);
     pub_cloud_ = nh_.advertise<sensor_msgs::PointCloud2>(topic_cloud,10);
+    bgmodel_ptr = std::make_shared<Bgmodel>(0.8, 30, 10, 200, -5, -10, 0);
 }
 
 void TranformCloud::callback(const sensor_msgs::PointCloud2ConstPtr cloud_msg_ptr) {
+    auto startTime = std::chrono::steady_clock::now();
+
+    i++;
 
     float time = cloud_msg_ptr->header.stamp.toSec();
 
@@ -98,36 +105,38 @@ void TranformCloud::callback(const sensor_msgs::PointCloud2ConstPtr cloud_msg_pt
 
 //    float theta = 0.1691;
 //    float theta = 0.194;
-    float theta = getTanAngle(cloud);
+//    float theta = getTanAngle(cloud);
+    float theta = 0.05;
     std::cout<<"****pitch:  "<<theta<<std::endl;
     Eigen::Affine3d T = Eigen::Affine3d::Identity();
     T.rotate(Eigen::AngleAxisd(theta, Eigen::Vector3d::UnitX()));
     pcl::transformPointCloud(*cloud, *cloud, T);
 
-    pcl::io::savePCDFileBinary("/home/ubuntu/Downloads/rosbag-juliangcity/data_transform.pcd", *cloud);
+//    pcl::io::savePCDFileBinary("/home/ubuntu/Downloads/rosbag-juliangcity/data_transform.pcd", *cloud);
 
-    float theta1 = atan2(-1*(12.81 - 8.56), (73.3386 - 26.2844));
+//    float theta1 = atan2(-1*(12.81 - 8.56), (73.3386 - 26.2844));
 //    float theta1 = atan2(-1*(10.8 - 9.25), (51.145 - 24.28));
-    Eigen::Affine3d T1 = Eigen::Affine3d::Identity();
-    T1.rotate(Eigen::AngleAxisd(theta1, Eigen::Vector3d::UnitY()));
-    pcl::transformPointCloud(*cloud, *cloud, T1);
+//    Eigen::Affine3d T1 = Eigen::Affine3d::Identity();
+//    T1.rotate(Eigen::AngleAxisd(theta1, Eigen::Vector3d::UnitY()));
+//    pcl::transformPointCloud(*cloud, *cloud, T1);
 
 
+//    if(i%2==1)
+    {
+        sensor_msgs::PointCloud2 transform_cloud;
+        pcl::toROSMsg(*cloud, transform_cloud);
+        pub_cloud_.publish(transform_cloud);
+    }
 
-    sensor_msgs::PointCloud2 transform_cloud;
-    pcl::toROSMsg(*cloud, transform_cloud);
-    pub_cloud_.publish(transform_cloud);
 
-
-//    pcl::visualization::PointCloudColorHandlerCustom<PointT> b(cloud, 0, 255, 0);
-//    viewer->addPointCloud(cloud, "ori");
     //add path region
     std::shared_ptr<ProcessPointClouds> ppc_ptr = std::make_shared<ProcessPointClouds>();
+    /* region alg start
     float height = ppc_ptr->GetSegmentPlaneHeight(cloud, 100, 0.1);
     std::cout<<"height:  "<<height<<std::endl;
     pcl::PointCloud<PointT>::Ptr cloud_part(new pcl::PointCloud<PointT>);
 //    cloud_part = ppc_ptr->CropCloudZ(cloud, -4.2, 3.7);
-    cloud_part = ppc_ptr->CropCloudZ(cloud, -7, 4);
+    cloud_part = ppc_ptr->CropCloudZ(cloud, -6, 6);
 
 
 //    std::pair<PtCdPtr, PtCdPtr> segResult = ppc_ptr->SegmentPlane(cloud_part, 100, 0.3);
@@ -142,119 +151,72 @@ void TranformCloud::callback(const sensor_msgs::PointCloud2ConstPtr cloud_msg_pt
     for(int i=0;i<cloud_part->size();i++)
     {
         PointT pp = cloud_part->points[i];
-        if(pp.y>(-1*height+0.5)&&pp.z<80&&pp.z>16&&pp.y<(-1*height+3))
+        if(pp.y>(-1*height-0.7)&&pp.z<80&&pp.z>16&&pp.y<(-1*height+2))
         {
             cars->points.push_back(pp);
         }
-        if(pp.z>=80&&pp.y<-3)
+        if(pp.z>=80&&pp.y<-5)
         {
             cars->points.push_back(pp);
         }
     }
+    */
 
-//    pcl::toROSMsg(*cars, transform_cloud);
-//    pub_cloud_.publish(transform_cloud);
+
 
     //cluster
 //    auto startTime = std::chrono::steady_clock::now();
 
-    if(cars->size()>5)
+    pcl::PointCloud<PointT>::Ptr cars(new pcl::PointCloud<PointT>);
+
+    if(i<50)
     {
-        std::vector<PtCdPtr> clusters = ppc_ptr->Clustering(cars, 2, 5, 800);
+        bgmodel_ptr->setBackground(cloud);
+    }
+    else{
+        std::pair<PtCdPtr, PtCdPtr> res = bgmodel_ptr->getDiff(cloud);
+        cars = res.first;
+
+
+        if(cars->size()>5)
+        {
+//            std::vector<PtCdPtr> clusters = ppc_ptr->Clustering(cars, 2, 5, 800);
+            auto clu = new cluster3d(cars->size(), 1, 3, 8000);
+            std::vector<PtCdPtr> clusters = clu->EuclidCluster(cars);
 //    auto clu = new cluster3d(cars->size(), 5, 10, 800);
 //    std::vector<PtCdPtr> clusters = clu->EuclidCluster(cars);
 //    auto endTime = std::chrono::steady_clock::now();
 //    auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
 //    std::cout << "clustering took " << elapsedTime.count() << " milliseconds"<<endl;
-        cout<<"cluster size:"<<clusters.size()<<endl;
+            cout<<"cluster size:"<<clusters.size()<<endl;
 
-        if(!clusters.empty())
-        {
+            if(!clusters.empty())
+            {
 //        pcl::io::savePCDFileBinary("/home/ubuntu/Downloads/rosbag-juliangcity/cars-18/"+ std::to_string(ros::Time::now().toSec()) +".pcd", *clusters[0]);
-            visualization_msgs::MarkerArray costCubes;
-            visualization_msgs::Marker costCube;
-            visualization_msgs::Marker costCubeTxt;
-            bool once = true;
-            while(once)
-            {
-                costCube.action = visualization_msgs::Marker::DELETEALL;
-                costCubes.markers.push_back(costCube);
-                once = false;
-            }
+                visualization_msgs::MarkerArray costCubes;
+                visualization_msgs::Marker costCube;
+                visualization_msgs::Marker costCubeTxt;
+                bool once = true;
+                while(once)
+                {
+                    costCube.action = visualization_msgs::Marker::DELETEALL;
+                    costCubes.markers.push_back(costCube);
+                    once = false;
+                }
 
-            for(int i=0;i<clusters.size();i++)
-            {
-                pcl::PointCloud<PointT>::Ptr car(new pcl::PointCloud<PointT>);
-                car = clusters[i];
-                cout<<"car size:"<<car->size()<<endl;
-                PointT minCar, maxCar;
-                pcl::getMinMax3D(*car, minCar, maxCar);
-
-#if det
-
-
-
-
-            costCube.action = visualization_msgs::Marker::ADD;
-            costCube.header.frame_id = "/neuvition";
-            costCube.header.stamp = ros::Time::now();
-            costCube.id = i;
-            costCube.type = visualization_msgs::Marker::CUBE;
-            float width = maxCar.x - minCar.x;
-//            if(width>1.8)
-//                width = 1.8;
-            costCube.scale.x = width;
-//            costCube.scale.x = maxCar.x - minCar.x + 0.5;
-            costCube.scale.y = maxCar.y - minCar.y;
-            float longth = maxCar.z - minCar.z;
-            float centerZ = (maxCar.z + minCar.z)/2;
-            std::cout<<"*********************longth: "<<longth<<std::endl;
-//            if(longth<1)
-//            {
-//                longth = longth + 3;
-//                centerZ = centerZ + 1.5;
-//            }
-            costCube.scale.z = longth;
-            costCube.color.a = 0.5;
-            costCube.color.r = 255;
-            costCube.color.g = 0;
-            costCube.color.b = 0;
-            costCube.pose.position.x = (maxCar.x + minCar.x)/2;
-            costCube.pose.position.y = (maxCar.y + minCar.y)/2;
-            costCube.pose.position.z = centerZ;
-
-            costCube.pose.orientation.x = 0.0;
-            costCube.pose.orientation.y = 0.0;
-            costCube.pose.orientation.z = 0.0;
-            costCube.pose.orientation.w = 1.0;
-            costCubes.markers.push_back(costCube);
-            pub_cube_.publish(costCubes);
-
-
-#endif
-                Eigen::Vector3d deti;
-                deti << (minCar.x+maxCar.x)/2, (minCar.y+maxCar.y)/2, (minCar.z+maxCar.z)/2;
-
-                dets.push_back(deti);
-
-
-            }
-
-#if trk
-
-            vector<pair<int, float>> idspeed = mot_ptr->update(dets, time);
-
-            for(int i=0;i<idspeed.size();i++)
-            {
-                if(idspeed[i].first!=-1)
+                for(int i=0;i<clusters.size();i++)
                 {
                     pcl::PointCloud<PointT>::Ptr car(new pcl::PointCloud<PointT>);
                     car = clusters[i];
                     cout<<"car size:"<<car->size()<<endl;
                     PointT minCar, maxCar;
                     pcl::getMinMax3D(*car, minCar, maxCar);
-//                cout<<"minxyz:"<<minCar.x<<" "<<minCar.y<<" "<<minCar.z<<endl;
-//                cout<<"maxxyz:"<<maxCar.x<<" "<<maxCar.y<<" "<<maxCar.z<<endl;
+
+#if det
+
+
+
+
                     costCube.action = visualization_msgs::Marker::ADD;
                     costCube.header.frame_id = "/neuvition";
                     costCube.header.stamp = ros::Time::now();
@@ -265,61 +227,129 @@ void TranformCloud::callback(const sensor_msgs::PointCloud2ConstPtr cloud_msg_pt
 //                width = 1.8;
                     costCube.scale.x = width;
 //            costCube.scale.x = maxCar.x - minCar.x + 0.5;
-                    costCube.scale.y = maxCar.y - minCar.y+0.5;
+                    costCube.scale.y = maxCar.y - minCar.y;
                     float longth = maxCar.z - minCar.z;
                     float centerZ = (maxCar.z + minCar.z)/2;
-                    if(longth<1)
-                    {
-                        longth = longth + 3;
-                        centerZ = centerZ + 1.5;
-                    }
+                    std::cout<<"*********************longth: "<<longth<<std::endl;
+//            if(longth<1)
+//            {
+//                longth = longth + 3;
+//                centerZ = centerZ + 1.5;
+//            }
                     costCube.scale.z = longth;
                     costCube.color.a = 0.5;
-                    costCube.color.r = 0;
-                    costCube.color.g = 255;
+                    costCube.color.r = 255;
+                    costCube.color.g = 0;
                     costCube.color.b = 0;
                     costCube.pose.position.x = (maxCar.x + minCar.x)/2;
                     costCube.pose.position.y = (maxCar.y + minCar.y)/2;
                     costCube.pose.position.z = centerZ;
 
-
-                    costCube.pose.orientation.x = 0;
-                    costCube.pose.orientation.y = 0;
-                    costCube.pose.orientation.z = 0;
-                    costCube.pose.orientation.w = 0;
+                    costCube.pose.orientation.x = 0.0;
+                    costCube.pose.orientation.y = 0.0;
+                    costCube.pose.orientation.z = 0.0;
+                    costCube.pose.orientation.w = 1.0;
                     costCubes.markers.push_back(costCube);
-
-                    //add txt
-                    costCubeTxt.header.frame_id="/neuvition";
-                    costCubeTxt.header.stamp = ros::Time::now();
-                    costCubeTxt.ns = "basic_shapes";
-                    costCubeTxt.action = visualization_msgs::Marker::ADD;
-                    costCubeTxt.pose.orientation.w = 1.0;
-                    costCubeTxt.id = idspeed[i].first;
-                    costCubeTxt.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
-
-                    costCubeTxt.scale.x = 2;
-                    costCubeTxt.scale.y = 2;
-                    costCubeTxt.scale.z = 2;
-                    costCubeTxt.color.b = 0;
-                    costCubeTxt.color.g = 0;
-                    costCubeTxt.color.r = 255;
-                    costCubeTxt.color.a = 1;
-
-                    costCubeTxt.pose.position.x = minCar.x;
-                    costCubeTxt.pose.position.y = minCar.y + 2;
-                    costCubeTxt.pose.position.z = minCar.z;
-                    ostringstream str;
-                    str<<idspeed[i].first;
-                    costCubeTxt.text=str.str();
-
-                    costCubes.markers.push_back(costCubeTxt);
-
                     pub_cube_.publish(costCubes);
+
+
+#endif
+                    Eigen::Vector3d deti;
+                    deti << (minCar.x+maxCar.x)/2, (minCar.y+maxCar.y)/2, (minCar.z+maxCar.z)/2;
+
+                    dets.push_back(deti);
+
+
                 }
 
-            }
+#if trk
+                auto endTime = std::chrono::steady_clock::now();
+                auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+                std::cout << "****detect***:  " << elapsedTime.count() << " milliseconds"<<endl;
+
+                vector<pair<int, float>> idspeed = mot_ptr->update(dets, time);
+
+                endTime = std::chrono::steady_clock::now();
+                elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(endTime - startTime);
+                std::cout << "****detect+track***:  " << elapsedTime.count() << " milliseconds"<<endl;
+
+                for(int i=0;i<idspeed.size();i++)
+                {
+                    if(idspeed[i].first!=-1)
+                    {
+                        pcl::PointCloud<PointT>::Ptr car(new pcl::PointCloud<PointT>);
+                        car = clusters[i];
+                        cout<<"car size:"<<car->size()<<endl;
+                        PointT minCar, maxCar;
+                        pcl::getMinMax3D(*car, minCar, maxCar);
+                        costCube.action = visualization_msgs::Marker::ADD;
+                        costCube.header.frame_id = "/neuvition";
+                        costCube.header.stamp = ros::Time::now();
+                        costCube.id = i;
+                        costCube.type = visualization_msgs::Marker::CUBE;
+                        float width = maxCar.x - minCar.x;
+//            if(width>1.8)
+//                width = 1.8;
+                        costCube.scale.x = width;
+//            costCube.scale.x = maxCar.x - minCar.x + 0.5;
+                        costCube.scale.y = maxCar.y - minCar.y+0.5;
+                        float longth = maxCar.z - minCar.z;
+                        float centerZ = (maxCar.z + minCar.z)/2;
+//                    if(longth<1)
+//                    {
+//                        longth = longth + 3;
+//                        centerZ = centerZ + 1.5;
+//                    }
+                        costCube.scale.z = longth;
+                        costCube.color.a = 0.5;
+                        costCube.color.r = 0;
+                        costCube.color.g = 255;
+                        costCube.color.b = 0;
+                        costCube.pose.position.x = (maxCar.x + minCar.x)/2;
+                        costCube.pose.position.y = (maxCar.y + minCar.y)/2;
+                        costCube.pose.position.z = centerZ;
+
+
+                        costCube.pose.orientation.x = 0;
+                        costCube.pose.orientation.y = 0;
+                        costCube.pose.orientation.z = 0;
+                        costCube.pose.orientation.w = 0;
+                        costCubes.markers.push_back(costCube);
+
+                        //add txt
+                        costCubeTxt.header.frame_id="/neuvition";
+                        costCubeTxt.header.stamp = ros::Time::now();
+                        costCubeTxt.ns = "basic_shapes";
+                        costCubeTxt.action = visualization_msgs::Marker::ADD;
+                        costCubeTxt.pose.orientation.w = 1.0;
+                        costCubeTxt.id = idspeed[i].first;
+                        costCubeTxt.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
+
+                        costCubeTxt.scale.x = 2;
+                        costCubeTxt.scale.y = 2;
+                        costCubeTxt.scale.z = 2;
+                        costCubeTxt.color.b = 0;
+                        costCubeTxt.color.g = 0;
+                        costCubeTxt.color.r = 255;
+                        costCubeTxt.color.a = 1;
+
+                        costCubeTxt.pose.position.x = minCar.x;
+                        costCubeTxt.pose.position.y = minCar.y + 2;
+                        costCubeTxt.pose.position.z = minCar.z;
+                        ostringstream str;
+                        str<<idspeed[i].second*18.0;
+                        costCubeTxt.text=str.str();
+
+                        costCubes.markers.push_back(costCubeTxt);
+
+                        pub_cube_.publish(costCubes);
+                    }
+
+                }
+
+
 #endif
+            }
         }
     }
 

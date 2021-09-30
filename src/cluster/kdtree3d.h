@@ -62,12 +62,14 @@ struct KdTree {
             float delta_y = node->point.y - target.y;
             float delta_z = node->point.z - target.z;
 
-            float thresh = 0.03*node->point.z + 0.5;
+            float thresh = 0.02*target.z + 0.8;
+//            if(target.z > 120)
+//                thresh = 2.7;
 
             if ((delta_x >= -distanceTolx && delta_x <= distanceTolx) &&
                 (delta_y >= -distanceToly && delta_y <= distanceToly) &&
                 (delta_z >= -distanceTolz && delta_z <= distanceTolz)) {
-                float distance = sqrt(delta_x * delta_x + delta_y * delta_y + delta_z * delta_z/16);
+                float distance = sqrt(delta_x * delta_x/(distanceTolx*distanceTolx) + delta_y * delta_y/(distanceToly*distanceToly) + delta_z * delta_z/(distanceTolz*distanceTolz));
                 if (distance <= thresh) {
                     ids.push_back(node->id);
                 }
