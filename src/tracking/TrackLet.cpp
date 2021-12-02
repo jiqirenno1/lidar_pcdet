@@ -77,8 +77,7 @@ int TrackLet::getID() {
 }
 
 float TrackLet::getSpeed() {
-    float speed = std::sqrt(std::pow(KF_.GetX()[5], 2) + std::pow(KF_.GetX()[4], 2) +
-            std::pow(KF_.GetX()[3], 2) + 1e-9) * (KF_.GetX()[5]/std::abs(KF_.GetX()[5]));
+    float speed = KF_.GetX()[3];
     return speed;
 }
 

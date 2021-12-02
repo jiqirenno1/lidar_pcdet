@@ -77,8 +77,8 @@ TranformCloud::TranformCloud(ros::NodeHandle &nh, std::string topic_sub, std::st
     sub_ = nh_.subscribe(topic_sub, buff_size, &TranformCloud::callback, this);
     pub_cube_ = nh_.advertise<visualization_msgs::MarkerArray>(topic_pub, 2);
     pub_txt_ = nh_.advertise<visualization_msgs::MarkerArray>("axis_txt", 2);
-    pub_cloud_ = nh_.advertise<sensor_msgs::PointCloud2>(topic_cloud,10);
-    bgmodel_ptr = std::make_shared<Bgmodel>(0.8, 30, 10, 200, -5, -10, 0);
+    pub_cloud_ = nh_.advertise<sensor_msgs::PointCloud2>(topic_cloud, 10);
+    bgmodel_ptr = std::make_shared<Bgmodel>(0.8, 200, 30, 10, 0, -5, -10);
 }
 
 void TranformCloud::callback(const sensor_msgs::PointCloud2ConstPtr cloud_msg_ptr) {
@@ -105,11 +105,11 @@ void TranformCloud::callback(const sensor_msgs::PointCloud2ConstPtr cloud_msg_pt
 
 //    float theta = 0.1691;
 //    float theta = 0.194;
-//    float theta = getTanAngle(cloud);
+//    float theta = getTanAngle(cloud); // time-consuming
     float theta = 0.05;
     std::cout<<"****pitch:  "<<theta<<std::endl;
     Eigen::Affine3d T = Eigen::Affine3d::Identity();
-    T.rotate(Eigen::AngleAxisd(theta, Eigen::Vector3d::UnitX()));
+    T.rotate(Eigen::AngleAxisd(theta, Eigen::Vector3d::UnitY()));
     pcl::transformPointCloud(*cloud, *cloud, T);
 
 //    pcl::io::savePCDFileBinary("/home/ubuntu/Downloads/rosbag-juliangcity/data_transform.pcd", *cloud);
@@ -168,6 +168,7 @@ void TranformCloud::callback(const sensor_msgs::PointCloud2ConstPtr cloud_msg_pt
 //    auto startTime = std::chrono::steady_clock::now();
 
     pcl::PointCloud<PointT>::Ptr cars(new pcl::PointCloud<PointT>);
+    pcl::PointCloud<PointT>::Ptr front(new pcl::PointCloud<PointT>);
 
     if(i<50)
     {
@@ -175,14 +176,21 @@ void TranformCloud::callback(const sensor_msgs::PointCloud2ConstPtr cloud_msg_pt
     }
     else{
         std::pair<PtCdPtr, PtCdPtr> res = bgmodel_ptr->getDiff(cloud);
+//        front = res.first;
+//
+//        for(auto &e:front->points)
+//        {
+//            if(e.y>-8.9||e.z>60)
+//                cars->points.push_back(e);
+//        }
         cars = res.first;
 
 
         if(cars->size()>5)
         {
-//            std::vector<PtCdPtr> clusters = ppc_ptr->Clustering(cars, 2, 5, 800);
-            auto clu = new cluster3d(cars->size(), 1, 3, 8000);
-            std::vector<PtCdPtr> clusters = clu->EuclidCluster(cars);
+            std::vector<PtCdPtr> clusters = ppc_ptr->Clustering(cars, 2, 5, 800);
+//            auto clu = new cluster3d(cars->size(), 1, 3, 8000);
+//            std::vector<PtCdPtr> clusters = clu->EuclidCluster(cars);
 //    auto clu = new cluster3d(cars->size(), 5, 10, 800);
 //    std::vector<PtCdPtr> clusters = clu->EuclidCluster(cars);
 //    auto endTime = std::chrono::steady_clock::now();
@@ -218,7 +226,7 @@ void TranformCloud::callback(const sensor_msgs::PointCloud2ConstPtr cloud_msg_pt
 
 
                     costCube.action = visualization_msgs::Marker::ADD;
-                    costCube.header.frame_id = "/neuvition";
+                    costCube.header.frame_id = "/benewake_pointcloud";
                     costCube.header.stamp = ros::Time::now();
                     costCube.id = i;
                     costCube.type = visualization_msgs::Marker::CUBE;
@@ -283,7 +291,7 @@ void TranformCloud::callback(const sensor_msgs::PointCloud2ConstPtr cloud_msg_pt
                         PointT minCar, maxCar;
                         pcl::getMinMax3D(*car, minCar, maxCar);
                         costCube.action = visualization_msgs::Marker::ADD;
-                        costCube.header.frame_id = "/neuvition";
+                        costCube.header.frame_id = "/benewake_pointcloud";
                         costCube.header.stamp = ros::Time::now();
                         costCube.id = i;
                         costCube.type = visualization_msgs::Marker::CUBE;
@@ -317,7 +325,7 @@ void TranformCloud::callback(const sensor_msgs::PointCloud2ConstPtr cloud_msg_pt
                         costCubes.markers.push_back(costCube);
 
                         //add txt
-                        costCubeTxt.header.frame_id="/neuvition";
+                        costCubeTxt.header.frame_id="/benewake_pointcloud";
                         costCubeTxt.header.stamp = ros::Time::now();
                         costCubeTxt.ns = "basic_shapes";
                         costCubeTxt.action = visualization_msgs::Marker::ADD;
@@ -337,7 +345,7 @@ void TranformCloud::callback(const sensor_msgs::PointCloud2ConstPtr cloud_msg_pt
                         costCubeTxt.pose.position.y = minCar.y + 2;
                         costCubeTxt.pose.position.z = minCar.z;
                         ostringstream str;
-                        str<<idspeed[i].second*18.0;
+                        str<<idspeed[i].second*3.6*6;
                         costCubeTxt.text=str.str();
 
                         costCubes.markers.push_back(costCubeTxt);
@@ -361,7 +369,7 @@ void TranformCloud::publish_txt(std::string topic_txt) {
     while(k<200)
     {
         visualization_msgs::Marker marker;
-        marker.header.frame_id="/neuvition";
+        marker.header.frame_id="/benewake_pointcloud";
         marker.header.stamp = ros::Time::now();
         marker.ns = "basic_shapes";
         marker.action = visualization_msgs::Marker::ADD;
@@ -398,7 +406,7 @@ int main(int argc, char** argv)
 {
     ros::init(argc, argv, "pcdet_node");
     ros::NodeHandle nh;
-    TranformCloud transform(nh, "neuvition_cloud", "marker_array", "neuvition_transform", 2);
+    TranformCloud transform(nh, "/benewake_horn_x2_ros_node/benewake_pointcloud", "marker_array", "cloud_transform", 2);
 
     ros::spin();
 
